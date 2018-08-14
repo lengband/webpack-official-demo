@@ -23,6 +23,71 @@ webpack 根据正则表达式，来确定应该查找哪些文件，并将其提
 #### 加载图片
 假想，现在我们正在下载 CSS，但是我们的背景和图标这些图片，要如何处理呢？使用 `file-loader`，我们可以轻松地将这些内容混合到 CSS 中</br>
 现在，当你 `import MyImage from './my-image.png'`，该图像将被处理并添加到 output 目录，并且 `MyImage` 变量将包含该图像在处理后的最终 url。当使用 `css-loader` 时，如上所示，你的 CSS 中的 `url('./my-image.png')` 会使用类似的过程去处理。loader 会识别这是一个本地文件，并将 `'./my-image.png'` 路径，替换为输出目录中图像的最终路径。`html-loader` 以相同的方式处理 `<img src="./my-image.png" />`。
+### 管理输出
+#### 预先准备
+>webpack.config.js
+```
+  const path = require('path');
 
+  module.exports = {
+-   entry: './src/index.js',
++   entry: {
++     app: './src/index.js',
++     print: './src/print.js'
++   },
+    output: {
+-     filename: 'bundle.js',
++     filename: '[name].bundle.js',
+      path: path.resolve(__dirname, 'dist')
+    }
+  };
+```
+#### 设定 HtmlWebpackPlugin
+```
+  const path = require('path');
++ const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+  module.exports = {
+    entry: {
+      app: './src/index.js',
+      print: './src/print.js'
+    },
++   plugins: [
++     new HtmlWebpackPlugin({
++       title: 'Output Management'
++     })
++   ],
+    output: {
+      filename: '[name].bundle.js',
+      path: path.resolve(__dirname, 'dist')
+    }
+  };
+```
+在我们构建之前，你应该了解，虽然在 `dist/` 文件夹我们已经有 `index.html` 这个文件，然而 `HtmlWebpackPlugin` 还是会默认生成 `index.html` 文件。这就是说，它会用新生成的 `index.html` 文件，把我们的原来的替换。让我们看下在执行 `npm run build` 后会发生什么
+#### 清理 /dist 文件夹
+通常，在每次构建前清理 /dist 文件夹，是比较推荐的做法，因此只会生成用到的文件。让我们用 `clean-webpack-plugin` 完成这个需求。
+> webpack.config.js
+```
+  const path = require('path');
+  const HtmlWebpackPlugin = require('html-webpack-plugin');
++ const CleanWebpackPlugin = require('clean-webpack-plugin');
+
+  module.exports = {
+    entry: {
+      app: './src/index.js',
+      print: './src/print.js'
+    },
+    plugins: [
++     new CleanWebpackPlugin(['dist']),
+      new HtmlWebpackPlugin({
+        title: 'Output Management'
+      })
+    ],
+    output: {
+      filename: '[name].bundle.js',
+      path: path.resolve(__dirname, 'dist')
+    }
+  };
+  ```
 
 

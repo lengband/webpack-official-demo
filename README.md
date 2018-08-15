@@ -267,4 +267,92 @@ app.listen(3000, function () {
   ```
 现在，在你的终端执行 `npm run server`
 >WP: 先将代码按照 `webpack.config.js` 配置文件编译出来，通过中间件的形式添加自定义的配置项，这样的话就会比较灵活
+### 模块热替换
+#### 启用 HMR
+启用此功能实际上相当简单。而我们要做的，就是更新 `webpack-dev-server` 的配置，和使用 `webpack` 内置的 HMR 插件。我们还要删除掉 `print.js` 的入口起点，因为它现在正被 `index.js` 模式使用。
+>如果你使用了 `webpack-dev-middleware` 而没有使用 `webpack-dev-server`，请使用 `webpack-hot-middleware` package 包，以在你的自定义服务或应用程序上启用 HMR。
 
+>webpack.config.js
+```
+ const path = require('path');
+  const HtmlWebpackPlugin = require('html-webpack-plugin');
+  const CleanWebpackPlugin = require('clean-webpack-plugin');
++ const webpack = require('webpack');
+
+  module.exports = {
+    entry: {
+-      app: './src/index.js',
+-      print: './src/print.js'
++      app: './src/index.js'
+    },
+    devtool: 'inline-source-map',
+    devServer: {
+      contentBase: './dist',
++     hot: true
+    },
+    plugins: [
+      new CleanWebpackPlugin(['dist']),
+      new HtmlWebpackPlugin({
+        title: 'Hot Module Replacement'
+      }),
++     new webpack.HotModuleReplacementPlugin()
+    ],
+    output: {
+      filename: '[name].bundle.js',
+      path: path.resolve(__dirname, 'dist')
+    }
+  };
+  ```
+现在，我们来修改 `index.js` 文件，以便当 `print.js` 内部发生变更时可以告诉 webpack 接受更新的模块。
+>index.js
+```
+import _ from 'lodash';
+  import printMe from './print.js';
+
+  function component() {
+    var element = document.createElement('div');
+    var btn = document.createElement('button');
+
+    element.innerHTML = _.join(['Hello', 'webpack'], ' ');
+
+    btn.innerHTML = 'Click me and check the console!';
+    btn.onclick = printMe;
+
+    element.appendChild(btn);
+
+    return element;
+  }
+
+  document.body.appendChild(component());
++
++ if (module.hot) { // WP: 这种写法重要是面对 webpack-dev-middleware, 对于 webpack-dev-server 来说不需要这样配置，webpack-dev-server 天然支持根据引入关系进行热更新
++   module.hot.accept('./print.js', function() {
++     console.log('Accepting the updated printMe module!');
++     printMe();
++   })
++ }
+```
+#### 通过 Node.js API
+当使用 `webpack dev server` 和 Node.js API 时，不要将 dev server 选项放在 webpack 配置对象(webpack config object)中。而是，在创建选项时，将其作为第二个参数传递。例如：`
+new WebpackDevServer(compiler, options)`<br>
+想要启用 HMR，还需要修改 `webpack` 配置对象，使其包含 HMR 入口起点。`webpack-dev-server` package 中具有一个叫做 `addDevServerEntrypoints` 的方法，你可以通过使用这个方法来实现。这是关于如何使用的一个小例子：
+>dev-server.js
+```
+const webpackDevServer = require('webpack-dev-server');
+const webpack = require('webpack');
+
+const config = require('./webpack.config.js');
+const options = {
+  contentBase: './dist',
+  hot: true,
+  host: 'localhost'
+};
+
+webpackDevServer.addDevServerEntrypoints(config, options);
+const compiler = webpack(config);
+const server = new webpackDevServer(compiler, options);
+
+server.listen(5000, 'localhost', () => {
+  console.log('dev server listening on port 5000');
+});
+```
